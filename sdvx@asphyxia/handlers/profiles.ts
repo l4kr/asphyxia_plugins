@@ -403,22 +403,14 @@ export const saveScore: EPR = async (info, data, send) => {
         const playSCritical = i.number('just', i.number('s_critical', i.number('v_crit', i.number('perf', 0))));
         const playNear = i.number('near', 0);
         const playError = i.number('error', 0);
-        const playEarly = i.number('early', 0);
-        const playLate = i.number('late', 0);
 
-        // TEMP DEBUG: "early"/"late" have been reading back as 0 on every
-        // play, which means either the field names are wrong or the data
-        // lives somewhere else in the track node entirely. Dump the raw
-        // parsed node once per scored play so we can see every key the cab
-        // actually sent and fix the real field name/path. Safe to remove
-        // once early/late are confirmed working.
-        if ((playCritical > 0 || playNear > 0 || playError > 0) && playEarly === 0 && playLate === 0) {
-          try {
-            console.log('[sdvx-debug] track raw node for mid=' + mid + ' type=' + type + ':', JSON.stringify(i.obj));
-          } catch (err) {
-            console.error('[sdvx-debug] failed to stringify track node: ' + err);
-          }
-        }
+        // There is no flat "early"/"late" field in the KBin data. Instead,
+        // the cab sends a 7-element s32 "judge" array (e.g. [4,0,1,28,0,1,7])
+        // whose first and last elements are the near-fast/near-slow split --
+        // confirmed by them summing to exactly this play's `near` count.
+        const judge = i.numbers('judge', []);
+        const playEarly = judge.length >= 7 ? judge[0] : 0;
+        const playLate = judge.length >= 7 ? judge[judge.length - 1] : 0;
 
         // `score`/`exscore` (and the rates tied to a score-best) remain
         // personal-best-gated, since those are meant to represent your
@@ -1724,6 +1716,13 @@ async function tachiAutoExport(refid: string, version: number, tracks: any[]) {
     const near = track.number('near', 0);
     const error = track.number('error', 0);
 
+    // See handlers/profiles.ts's saveScore for how this array maps to
+    // fast/slow: the first and last of the 7 s32 values are the
+    // near-fast/near-slow split (confirmed by them summing to `near`).
+    const judge = track.numbers('judge', []);
+    const fast = judge.length >= 7 ? judge[0] : 0;
+    const slow = judge.length >= 7 ? judge[judge.length - 1] : 0;
+
     if (!isValidMid(mid)) continue;
 
     const lamp = lampMap[clearType];
@@ -1743,7 +1742,11 @@ async function tachiAutoExport(refid: string, version: number, tracks: any[]) {
         near,
         miss: error,
       },
-      optional: exscore > 0 ? { exScore: exscore } : undefined,
+      optional: {
+        ...(exscore > 0 ? { exScore: exscore } : {}),
+        fast,
+        slow,
+      },
     });
   }
 
