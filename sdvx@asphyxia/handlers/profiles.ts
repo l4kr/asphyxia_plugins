@@ -362,9 +362,7 @@ export const saveScore: EPR = async (info, data, send) => {
         const type = i.number('music_type');
         if (_.isNil(mid) || _.isNil(type)) return send.deny();
 
-        if (CORE_DEV_MODE) {
-          console.log('[sdvx-debug] FULL raw track node for mid=' + mid + ' type=' + type + ': ' + JSON.stringify(i.obj));
-        }
+        console.log('[sdvx-debug] FULL raw track node for mid=' + mid + ' type=' + type + ': ' + JSON.stringify(i.obj));
 
         const record: MusicRecord = (await DB.FindOne<MusicRecord>(refid, {
           collection: 'music',
