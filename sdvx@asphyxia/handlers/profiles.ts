@@ -406,6 +406,20 @@ export const saveScore: EPR = async (info, data, send) => {
         const playEarly = i.number('early', 0);
         const playLate = i.number('late', 0);
 
+        // TEMP DEBUG: "early"/"late" have been reading back as 0 on every
+        // play, which means either the field names are wrong or the data
+        // lives somewhere else in the track node entirely. Dump the raw
+        // parsed node once per scored play so we can see every key the cab
+        // actually sent and fix the real field name/path. Safe to remove
+        // once early/late are confirmed working.
+        if ((playCritical > 0 || playNear > 0 || playError > 0) && playEarly === 0 && playLate === 0) {
+          try {
+            console.log('[sdvx-debug] track raw node for mid=' + mid + ' type=' + type + ':', JSON.stringify(i.obj));
+          } catch (err) {
+            console.error('[sdvx-debug] failed to stringify track node: ' + err);
+          }
+        }
+
         // `score`/`exscore` (and the rates tied to a score-best) remain
         // personal-best-gated, since those are meant to represent your
         // all-time best on this chart.
