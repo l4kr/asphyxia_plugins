@@ -797,12 +797,27 @@ export const musicreg: EPR = async (info, data, send) => {
         esArray,
         optArray,
         opt2Array,
+        updatedAt: Date.now(),
 
         [clid]: ghost,
         [clid + 10]: ghost_gauge,
       }
     }
   );
+
+  try {
+    EVENTS.EmitScore({
+      refid,
+      mid,
+      clid,
+      score: exscore,
+      clear: cflg,
+      missCount: mnum,
+      isNewBest: update === 1,
+    });
+  } catch (err) {
+    console.error('Live score broadcast failed: ' + err);
+  }
 
   tachiAutoExport(refid.toString(), {
     mid,
@@ -1135,12 +1150,27 @@ export const musicbreg: EPR = async (info, data, send) => {
         esArray,
         optArray,
         opt2Array,
+        updatedAt: Date.now(),
 
         [clid]: null,
         [clid + 10]: null,
       }
     }
   );
+
+  try {
+    EVENTS.EmitScore({
+      refid,
+      mid,
+      clid,
+      score: exscore,
+      clear: cflg,
+      missCount: -1,
+      isNewBest: exscore > (music_data ? music_data.esArray[clid] : 0),
+    });
+  } catch (err) {
+    console.error('Live score broadcast failed: ' + err);
+  }
 
   tachiAutoExport(refid.toString(), {
     mid,
