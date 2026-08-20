@@ -329,6 +329,25 @@ export const saveScore: EPR = async (info, data, send) => {
       );
 
       invalidateHiscoreIfNew(`${version}:${dVersion}`, mid, type, record.score, (record as any).exscore || 0);
+
+      try {
+        EVENTS.EmitScore({
+          refid,
+          mid,
+          type,
+          score,
+          clear: record.clear,
+          grade: record.grade,
+          critical: record.critical,
+          near: record.near,
+          error: record.error,
+          maxChain: record.maxChain,
+          isNewBest: score > 0 && score === record.score,
+        });
+      } catch (err) {
+        console.error('Live score broadcast failed: ' + err);
+      }
+
       return send.success();
     } catch {
       return send.deny();
@@ -376,26 +395,50 @@ export const saveScore: EPR = async (info, data, send) => {
         const volforce = i.number('volforce', 0);
         const maxChain = i.number('max_chain', 0);
 
-        if (score > record.score) {
+        // Raw per-play judgement breakdown, captured unconditionally (i.e.
+        // regardless of whether this play set a new personal best) so the
+        // real-time live-score feed always reflects what actually just
+        // happened, the same way the Tachi auto-export always does.
+        const playCritical = i.number('critical', 0);
+        const playSCritical = i.number('just', i.number('s_critical', i.number('v_crit', i.number('perf', 0))));
+        const playNear = i.number('near', 0);
+        const playError = i.number('error', 0);
+        const playEarly = i.number('early', 0);
+        const playLate = i.number('late', 0);
+
+        // The judgement breakdown (critical/near/error/early/late) must be
+        // refreshed whenever either `score` OR `exscore` reaches a new
+        // personal best, since EX Score is derived directly from those
+        // judgement counts. Previously this was gated solely on `score`,
+        // so a chart where only EX Score improved (or a historical high
+        // score set before this tracking existed) would keep stale/zero
+        // near-miss counts forever, even though the raw per-play data
+        // (and therefore the Tachi auto-export) was always correct.
+        const isNewScoreBest = score > record.score;
+        const isNewExScoreBest = exscore > record.exscore;
+
+        if (isNewScoreBest) {
           record.score = score;
           record.buttonRate = i.number('btn_rate', 0);
           record.longRate = i.number('long_rate', 0);
           record.volRate = i.number('vol_rate', 0);
-          
-          record.critical = i.number('critical', 0);
-          record.s_critical = i.number('just', i.number('s_critical', i.number('v_crit', i.number('perf', 0))));
-          record.near = i.number('near', 0);
-          record.error = i.number('error', 0);
-          record.early = i.number('early', 0);
-          record.late = i.number('late', 0);
-        }
-        
-        if (maxChain > (record.maxChain || 0)) {
-          record.maxChain = maxChain;
         }
 
-        if (exscore > record.exscore) {
+        if (isNewExScoreBest) {
           record.exscore = exscore;
+        }
+
+        if (isNewScoreBest || isNewExScoreBest) {
+          record.critical = playCritical;
+          record.s_critical = playSCritical;
+          record.near = playNear;
+          record.error = playError;
+          record.early = playEarly;
+          record.late = playLate;
+        }
+
+        if (maxChain > (record.maxChain || 0)) {
+          record.maxChain = maxChain;
         }
 
         if (!('volforce' in record) || volforce > record.volforce) {
@@ -429,6 +472,28 @@ export const saveScore: EPR = async (info, data, send) => {
           record.score,
           record.exscore
         );
+
+        try {
+          EVENTS.EmitScore({
+            refid,
+            mid,
+            type,
+            score,
+            exscore,
+            clear: record.clear,
+            grade: record.grade,
+            critical: playCritical,
+            s_critical: playSCritical,
+            near: playNear,
+            error: playError,
+            early: playEarly,
+            late: playLate,
+            maxChain,
+            isNewBest: isNewScoreBest || isNewExScoreBest,
+          });
+        } catch (err) {
+          console.error('Live score broadcast failed: ' + err);
+        }
       }
 
       // Auto-export to Tachi (fire-and-forget)
