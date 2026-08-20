@@ -363,7 +363,8 @@ export const saveScore: EPR = async (info, data, send) => {
         if (_.isNil(mid) || _.isNil(type)) return send.deny();
 
         if (U.GetConfig('sdvx_debug_logging')) {
-          console.log('[sdvx-debug] FULL raw track node for mid=' + mid + ' type=' + type + ': ' + JSON.stringify(i.obj));
+          const dbgProfile = await DB.FindOne<Profile>(refid, { collection: 'profile', version: Math.abs(version) });
+          console.log('[sdvx-debug] drawAdjust=' + (dbgProfile ? dbgProfile.drawAdjust : 'unknown') + ' earlyLateDisp=' + (dbgProfile ? dbgProfile.earlyLateDisp : 'unknown') + ' FULL raw track node for mid=' + mid + ' type=' + type + ': ' + JSON.stringify(i.obj));
         }
 
         const record: MusicRecord = (await DB.FindOne<MusicRecord>(refid, {
