@@ -362,8 +362,6 @@ export const saveScore: EPR = async (info, data, send) => {
         const type = i.number('music_type');
         if (_.isNil(mid) || _.isNil(type)) return send.deny();
 
-        console.log('[sdvx-debug] FULL raw track node for mid=' + mid + ' type=' + type + ': ' + JSON.stringify(i.obj));
-
         const record: MusicRecord = (await DB.FindOne<MusicRecord>(refid, {
           collection: 'music',
           mid,
@@ -386,6 +384,8 @@ export const saveScore: EPR = async (info, data, send) => {
           maxChain: 0,
           critical: 0,
           s_critical: 0,
+          criticalEarly: 0,
+          criticalLate: 0,
           near: 0,
           error: 0,
           early: 0,
@@ -401,8 +401,20 @@ export const saveScore: EPR = async (info, data, send) => {
         // regardless of whether this play set a new personal best) so the
         // real-time live-score feed always reflects what actually just
         // happened, the same way the Tachi auto-export always does.
-        const playCritical = i.number('critical', 0);
-        const playSCritical = i.number('just', i.number('s_critical', i.number('v_crit', i.number('perf', 0))));
+        //
+        // The raw KBin 'critical' field is the COMBINED total (S-critical +
+        // plain critical), and 'just' is the plain-critical total
+        // (early+late combined) -- confirmed via a real play where
+        // critical=206, just=22, and the in-game result screen showed
+        // critical-early=8, critical-late=14 (8+14=22=just) and
+        // s-critical=184 (206-22=184=critical-just). So what we display as
+        // "critical" (mirroring how NEAR is shown, as a single number with
+        // an early/late arrow breakdown) is 'just', and the true S-critical
+        // count is the remainder.
+        const playCriticalTotal = i.number('critical', 0);
+        const playJust = i.number('just', 0);
+        const playSCritical = playCriticalTotal - playJust;
+        const playCritical = playJust;
         const playNear = i.number('near', 0);
         const playError = i.number('error', 0);
 
@@ -410,9 +422,16 @@ export const saveScore: EPR = async (info, data, send) => {
         // the cab sends a 7-element s32 "judge" array (e.g. [4,0,1,28,0,1,7])
         // whose first and last elements are the near-fast/near-slow split --
         // confirmed by them summing to exactly this play's `near` count.
+        // judge[1]+judge[2] line up with the early portion of plain critical
+        // (confirmed exactly against the real play above: 2+6=8=critical-early);
+        // the late portion is derived by subtracting from playCritical
+        // ('just') rather than summed independently, so early+late always
+        // add up exactly to the displayed critical total.
         const judge = i.numbers('judge', []);
         const playEarly = judge.length >= 7 ? judge[0] : 0;
         const playLate = judge.length >= 7 ? judge[judge.length - 1] : 0;
+        const playCriticalEarly = judge.length >= 7 ? judge[1] + judge[2] : 0;
+        const playCriticalLate = judge.length >= 7 ? playCritical - playCriticalEarly : 0;
 
         // `score`/`exscore` (and the rates tied to a score-best) remain
         // personal-best-gated, since those are meant to represent your
@@ -444,6 +463,8 @@ export const saveScore: EPR = async (info, data, send) => {
         // current numbers that were correctly reflected in Tachi.
         record.critical = playCritical;
         record.s_critical = playSCritical;
+        record.criticalEarly = playCriticalEarly;
+        record.criticalLate = playCriticalLate;
         record.near = playNear;
         record.error = playError;
         record.early = playEarly;
@@ -507,6 +528,8 @@ export const saveScore: EPR = async (info, data, send) => {
             grade: playGrade,
             critical: playCritical,
             s_critical: playSCritical,
+            criticalEarly: playCriticalEarly,
+            criticalLate: playCriticalLate,
             near: playNear,
             error: playError,
             early: playEarly,
@@ -1728,7 +1751,6 @@ async function tachiAutoExport(refid: string, version: number, tracks: any[]) {
     const clearType = track.number('clear_type', 0);
     const exscore = track.number('exscore', 0);
     const critical = track.number('critical', 0);
-    const sCritical = track.number('just', track.number('s_critical', track.number('v_crit', track.number('perf', 0))));
     const near = track.number('near', 0);
     const error = track.number('error', 0);
 
@@ -1754,7 +1776,11 @@ async function tachiAutoExport(refid: string, version: number, tracks: any[]) {
       difficulty: diff,
       timeAchieved: Date.now(),
       judgements: {
-        critical: critical + sCritical,
+        // Raw KBin 'critical' is already the combined S-critical + plain
+        // critical total (confirmed via a real play: critical=206,
+        // just=22 (plain), 206-22=184=s-critical) -- do not add anything
+        // else on top, or S-critical gets double-counted.
+        critical,
         near,
         miss: error,
       },
