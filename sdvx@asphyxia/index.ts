@@ -108,6 +108,14 @@ export function register() {
     type: 'boolean',
     default: false
   });
+
+  R.Config('sdvx_debug_logging', {
+    name: 'Debug Logging',
+    desc: 'Logs the full raw per-play score data on every score save. Only enable when actively troubleshooting -- leave off for normal play.',
+    type: 'boolean',
+    needRestart: false,
+    default: false
+  });
   
   R.DataFile('./webui/asset/uploads/1_mdb.xml', {name: 'music_db.xml (BOOTH)', accept: 'text/xml, .xml'});
   R.DataFile('./webui/asset/uploads/2_mdb.xml', {name: 'music_db.xml (infinite infection)', accept: 'text/xml, .xml'});
