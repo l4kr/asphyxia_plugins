@@ -388,9 +388,6 @@ export const saveScore: EPR = async (info, data, send) => {
           volRate: 0,
           maxChain: 0,
           critical: 0,
-          s_critical: 0,
-          criticalEarly: 0,
-          criticalLate: 0,
           near: 0,
           error: 0,
           early: 0,
@@ -408,35 +405,25 @@ export const saveScore: EPR = async (info, data, send) => {
         // happened, the same way the Tachi auto-export always does.
         //
         // The raw KBin 'critical' field is the COMBINED total (S-critical +
-        // plain critical), and 'just' is the plain-critical total
-        // (early+late combined) -- confirmed via a real play where
-        // critical=206, just=22, and the in-game result screen showed
-        // critical-early=8, critical-late=14 (8+14=22=just) and
-        // s-critical=184 (206-22=184=critical-just). So what we display as
-        // "critical" (mirroring how NEAR is shown, as a single number with
-        // an early/late arrow breakdown) is 'just', and the true S-critical
-        // count is the remainder.
-        const playCriticalTotal = i.number('critical', 0);
-        const playJust = i.number('just', 0);
-        const playSCritical = playCriticalTotal - playJust;
-        const playCritical = playJust;
+        // plain critical) and is displayed as a single "critical" number.
+        // Splitting it into S-critical/plain-critical (via 'just') and
+        // further into critical-early/critical-late (via the judge[] array)
+        // were both tried and found to be off by a small, unexplained amount
+        // against real result-screen numbers across multiple test plays, so
+        // neither split is attempted anymore.
+        const playCritical = i.number('critical', 0);
         const playNear = i.number('near', 0);
         const playError = i.number('error', 0);
 
         // There is no flat "early"/"late" field in the KBin data. Instead,
         // the cab sends a 7-element s32 "judge" array (e.g. [4,0,1,28,0,1,7])
         // whose first and last elements are the near-fast/near-slow split --
-        // confirmed by them summing to exactly this play's `near` count.
-        // judge[1]+judge[2] line up with the early portion of plain critical
-        // (confirmed exactly against the real play above: 2+6=8=critical-early);
-        // the late portion is derived by subtracting from playCritical
-        // ('just') rather than summed independently, so early+late always
-        // add up exactly to the displayed critical total.
+        // confirmed exactly (zero error) against real result-screen numbers
+        // across multiple test plays, by summing to exactly this play's
+        // `near` count.
         const judge = i.numbers('judge', []);
         const playEarly = judge.length >= 7 ? judge[0] : 0;
         const playLate = judge.length >= 7 ? judge[judge.length - 1] : 0;
-        const playCriticalEarly = judge.length >= 7 ? judge[1] + judge[2] : 0;
-        const playCriticalLate = judge.length >= 7 ? playCritical - playCriticalEarly : 0;
 
         // `score`/`exscore` (and the rates tied to a score-best) remain
         // personal-best-gated, since those are meant to represent your
@@ -467,9 +454,6 @@ export const saveScore: EPR = async (info, data, send) => {
         // play, even though the play actually being shown had real,
         // current numbers that were correctly reflected in Tachi.
         record.critical = playCritical;
-        record.s_critical = playSCritical;
-        record.criticalEarly = playCriticalEarly;
-        record.criticalLate = playCriticalLate;
         record.near = playNear;
         record.error = playError;
         record.early = playEarly;
@@ -532,9 +516,6 @@ export const saveScore: EPR = async (info, data, send) => {
             clear: playClear,
             grade: playGrade,
             critical: playCritical,
-            s_critical: playSCritical,
-            criticalEarly: playCriticalEarly,
-            criticalLate: playCriticalLate,
             near: playNear,
             error: playError,
             early: playEarly,
