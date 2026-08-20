@@ -406,14 +406,9 @@ export const saveScore: EPR = async (info, data, send) => {
         const playEarly = i.number('early', 0);
         const playLate = i.number('late', 0);
 
-        // The judgement breakdown (critical/near/error/early/late) must be
-        // refreshed whenever either `score` OR `exscore` reaches a new
-        // personal best, since EX Score is derived directly from those
-        // judgement counts. Previously this was gated solely on `score`,
-        // so a chart where only EX Score improved (or a historical high
-        // score set before this tracking existed) would keep stale/zero
-        // near-miss counts forever, even though the raw per-play data
-        // (and therefore the Tachi auto-export) was always correct.
+        // `score`/`exscore` (and the rates tied to a score-best) remain
+        // personal-best-gated, since those are meant to represent your
+        // all-time best on this chart.
         const isNewScoreBest = score > record.score;
         const isNewExScoreBest = exscore > record.exscore;
 
@@ -428,18 +423,24 @@ export const saveScore: EPR = async (info, data, send) => {
           record.exscore = exscore;
         }
 
-        if (isNewScoreBest || isNewExScoreBest) {
-          record.critical = playCritical;
-          record.s_critical = playSCritical;
-          record.near = playNear;
-          record.error = playError;
-          record.early = playEarly;
-          record.late = playLate;
-        }
-
-        if (maxChain > (record.maxChain || 0)) {
-          record.maxChain = maxChain;
-        }
+        // The judgement breakdown (critical/near/error/early/late) and
+        // maxChain, however, are refreshed on EVERY play unconditionally,
+        // matching the Tachi auto-export (which always reflects the most
+        // recent play, not just personal bests) and matching `updatedAt`
+        // below (which also updates every play). Previously these were
+        // gated behind isNewScoreBest/isNewExScoreBest, which caused the
+        // WebUI's "Recent Plays" list (sorted by updatedAt, so it always
+        // shows your latest play regardless of whether it's a new best)
+        // to display stale/zero judgement data left over from an old best
+        // play, even though the play actually being shown had real,
+        // current numbers that were correctly reflected in Tachi.
+        record.critical = playCritical;
+        record.s_critical = playSCritical;
+        record.near = playNear;
+        record.error = playError;
+        record.early = playEarly;
+        record.late = playLate;
+        record.maxChain = Math.max(maxChain, record.maxChain || 0);
 
         if (!('volforce' in record) || volforce > record.volforce) {
           record.volforce = volforce;
