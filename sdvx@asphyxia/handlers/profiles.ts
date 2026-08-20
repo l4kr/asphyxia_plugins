@@ -462,7 +462,21 @@ export const saveScore: EPR = async (info, data, send) => {
           // nabla switched clear lamp ids for mxv, uc and puc so it is in chronological order.
           record.clear = Math.max(i.number('clear_type', 0), record.clear);
         }
-        record.grade = Math.max(i.number('score_grade', 0), record.grade);
+        // Raw per-play clear/grade, captured before the best-ever merge above
+        // overwrites record.clear/record.grade -- the live event and Recent
+        // Plays list must show what THIS play actually got (e.g. FAILED),
+        // not the all-time best lamp/grade for the chart.
+        const playClear = i.number('clear_type', 0);
+        const playGrade = i.number('score_grade', 0);
+        record.grade = Math.max(playGrade, record.grade);
+        // Persisted separately from record.clear/record.grade (which stay
+        // best-ever, since the game client reads those back for song-select
+        // clear lamp icons) so the WebUI's Recent Plays list -- which is
+        // sorted by last played and must show what THIS play actually got,
+        // e.g. FAILED even though your best-ever lamp is higher -- has
+        // something accurate to read after a page refresh/restart.
+        record.lastClear = playClear;
+        record.lastGrade = playGrade;
         record.dbver = DB_VER
         record.updatedAt = Date.now();
 
@@ -487,8 +501,8 @@ export const saveScore: EPR = async (info, data, send) => {
             type,
             score,
             exscore,
-            clear: record.clear,
-            grade: record.grade,
+            clear: playClear,
+            grade: playGrade,
             critical: playCritical,
             s_critical: playSCritical,
             near: playNear,

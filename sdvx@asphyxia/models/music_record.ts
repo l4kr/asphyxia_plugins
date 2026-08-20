@@ -23,6 +23,8 @@ export interface MusicRecord {
   error: number;
   early?: number;
   late?: number;
+  lastClear?: number;
+  lastGrade?: number;
   effectiveRate: number;
   mode: number;
   gaugeType: number;
