@@ -1,6 +1,6 @@
 SOUND VOLTEX
 ===
-**Plugin Version:** fork-7.1.7
+**Plugin Version:** fork-7.1.8
 - Check for newer plugin versions [here](https://github.com/22vv0/asphyxia_plugins/releases?q=kfc&expanded=true).
 
 **Supported game versions:**
@@ -41,6 +41,10 @@ SOUND VOLTEX
 
 - `Startup flags`: Switch default toggle for new startup flags from `true` to `false`
 - `Profile customization`: Updated max selectable item ids for profile version
+
+### fork-7.1.8
+
+- Fixed `Update WebUI Assets` failing with `ENOENT: no such file or directory, mkdir '.../webui/asset/arena_rank'` on servers where the process working directory differs from the install directory. The IFS texture extraction step now resolves the asset output folder via `IO.Resolve()` (consistent with the rest of the plugin) instead of a hardcoded relative path, and creates it recursively.
 
 ---
 ## Extra notes
